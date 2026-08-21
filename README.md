@@ -164,6 +164,13 @@ Flint's own `theme_spec` presets are not available here: Flint applies them to i
 - Works on desktop and mobile. No Node APIs are used; files are read through the vault.
 - `main.js` is around 1.3 MB, almost all of it ECharts. Narrowing ECharts to a few chart families saves roughly 500 KB but costs 31 of the 37 chart types, which is not a trade this plugin makes.
 
-## Licence
+## Licence and attribution
 
-MIT — see [LICENSE](LICENSE). Bundled third-party components and their licences are listed in [NOTICE](NOTICE): Apache ECharts (Apache-2.0) and Flint (MIT).
+This plugin is MIT — see [LICENSE](LICENSE). Bundled third-party components are listed in [NOTICE](NOTICE):
+
+| Component | Licence |
+| --- | --- |
+| [Flint](https://github.com/microsoft/flint-chart) | MIT, © Microsoft Corporation |
+| [Apache ECharts](https://github.com/apache/echarts) | Apache-2.0, © The Apache Software Foundation |
+
+**Not affiliated with, endorsed by, or sponsored by Microsoft.** "Flint" appears in this plugin's name only to say which specification it reads. No Microsoft trademarks or logos are used, in keeping with [Microsoft's Trademark & Brand Guidelines](https://www.microsoft.com/en-us/legal/intellectualproperty/trademarks/usage/general). Obsidian is a trademark of Dynalist Inc., likewise unaffiliated.
