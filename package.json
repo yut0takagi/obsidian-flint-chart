@@ -1,0 +1,45 @@
+{
+  "name": "obsidian-flint-chart",
+  "version": "0.1.0",
+  "description": "Render Microsoft Flint semantic chart specifications inside Markdown notes.",
+  "license": "MIT",
+  "author": "Yuto Takagi",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yut0takagi/obsidian-flint-chart.git"
+  },
+  "homepage": "https://github.com/yut0takagi/obsidian-flint-chart#readme",
+  "bugs": "https://github.com/yut0takagi/obsidian-flint-chart/issues",
+  "keywords": [
+    "obsidian",
+    "obsidian-plugin",
+    "chart",
+    "dataviz",
+    "flint",
+    "echarts"
+  ],
+  "private": true,
+  "scripts": {
+    "dev": "node esbuild.config.mjs",
+    "build": "node esbuild.config.mjs production",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "check": "npm run typecheck && npm test && node scripts/check-plugin.mjs && npm run build",
+    "check:plugin": "node scripts/check-plugin.mjs"
+  },
+  "dependencies": {
+    "echarts": "6.1.0",
+    "flint-chart": "0.5.1"
+  },
+  "devDependencies": {
+    "@types/js-yaml": "^4.0.9",
+    "@types/node": "^20.11.0",
+    "esbuild": "^0.20.0",
+    "js-yaml": "^5.3.0",
+    "jsdom": "^29.1.1",
+    "obsidian": "latest",
+    "typescript": "^5.3.0",
+    "vitest": "^1.2.0"
+  }
+}

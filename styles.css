@@ -1,0 +1,58 @@
+.flint-chart-block {
+  margin: 0.5em 0;
+}
+
+.flint-chart-canvas {
+  width: 100%;
+  min-height: 120px;
+}
+
+.flint-chart-issues {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25em;
+  margin-top: 0.4em;
+  font-size: var(--font-ui-smaller);
+  line-height: 1.5;
+}
+
+.flint-chart-error,
+.flint-chart-warning {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5em;
+  padding: 0.35em 0.6em;
+  border-radius: var(--radius-s);
+  border-left: 3px solid var(--background-modifier-border);
+}
+
+.flint-chart-error {
+  background-color: var(--background-modifier-error);
+  border-left-color: var(--text-error);
+  color: var(--text-normal);
+}
+
+.flint-chart-warning {
+  background-color: var(--background-secondary);
+  border-left-color: var(--text-muted);
+  color: var(--text-muted);
+}
+
+.flint-chart-issue-label {
+  flex: 0 0 auto;
+  font-weight: var(--font-semibold);
+  text-transform: uppercase;
+  font-size: 0.85em;
+  letter-spacing: 0.04em;
+}
+
+.flint-chart-issue-text {
+  flex: 1 1 auto;
+  white-space: pre-wrap;
+}
+
+.flint-chart-issue-line {
+  flex: 0 0 auto;
+  font-family: var(--font-monospace);
+  opacity: 0.75;
+}
