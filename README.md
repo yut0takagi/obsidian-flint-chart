@@ -1,5 +1,9 @@
 # Flint Chart
 
+![Downloads](https://raw.githubusercontent.com/yut0takagi/obsidian-flint-chart/main/.github/stats/badge.svg)
+
+![Download history](https://raw.githubusercontent.com/yut0takagi/obsidian-flint-chart/main/.github/stats/downloads.svg)
+
 Write a chart in a note by saying what your data **means** and which chart you want. Scales, axes, aggregation, number formats, layout and colour are worked out for you.
 
 This plugin embeds [Flint](https://github.com/microsoft/flint-chart), Microsoft's semantics-driven intermediate language for data visualisation, into Markdown code blocks and renders the result with [Apache ECharts](https://echarts.apache.org/). **37 chart types**, including the structural ones most Markdown charting plugins do not reach: sankey, treemap, sunburst, gauge, tree, network graph, parallel coordinates and calendar heatmap.
