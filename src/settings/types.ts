@@ -1,4 +1,5 @@
 import type { ChartRenderer } from "../render/ChartView";
+import type { ExportBackground } from "../commands/exportPng";
 
 export interface FlintChartSettings {
   renderer: ChartRenderer;
@@ -7,6 +8,8 @@ export interface FlintChartSettings {
   /** Vault folder PNG exports are written to. Empty means beside the note. */
   exportFolder: string;
   exportScale: number;
+  /** What exported and copied images sit on. */
+  exportBackground: ExportBackground;
   /** Show the note saying a chart type was chosen automatically. */
   showRecommendationNotes: boolean;
 }
@@ -17,5 +20,6 @@ export const DEFAULT_SETTINGS: FlintChartSettings = {
   defaultHeight: 340,
   exportFolder: "",
   exportScale: 2,
+  exportBackground: "theme",
   showRecommendationNotes: true,
 };

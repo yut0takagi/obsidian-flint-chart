@@ -153,12 +153,15 @@ Each one's channels and options are listed in Flint's [ECharts chart reference](
 | Create chart from table or data file | With the cursor in a Markdown table (or on the line just below it), shows the charts Flint suggests for that table as previews and inserts the one you pick. The block reads the table through a link, or carries the rows itself when the table cannot be linked to (a second table under the same heading, say). Anywhere else, pick a CSV, TSV or JSON file from the vault instead. Every suggestion is drawn once before it is shown, so what you insert renders. |
 | Export charts in this note as PNG | Writes every chart in the note to an image. Existing files are never overwritten. |
 
+Each chart also has its own menu — the image button in its top-right corner, or a right-click on the chart — with **Copy as PNG**, **Save as PNG** (named after the note and the chart's title) and the background to use for both.
+
 ## Settings
 
 - **Renderer** — canvas (faster on large datasets) or SVG (stays crisp when zoomed). PNG export works the same with either: the image is drawn afresh on a canvas, after the entry animation.
 - **Default width / height** — used when a block does not say.
 - **Note automatic chart types** — show a line under the chart when the type was chosen for you.
 - **Export folder** and **export scale** — where PNGs go and how sharp they are. Scale 2 or 3 suits slides.
+- **Background** — what exported and copied images sit on: the note's theme (the default, so the image looks as it does in the note), white, or transparent. White also switches text and axes to dark ink, so a chart made in a dark theme stays readable on a white slide. Series colours are never changed.
 
 ## Theming
 

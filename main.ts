@@ -1,23 +1,25 @@
 import {
   MarkdownRenderChild,
+  Menu,
   Notice,
   Plugin,
   TFile,
   base64ToArrayBuffer,
   normalizePath,
   parseYaml,
+  setIcon,
 } from "obsidian";
 import type { Editor } from "obsidian";
 import { BlockController } from "./src/render/BlockController";
 import { echartsHost } from "./src/render/echartsHost";
 import { readPalette } from "./src/render/palette";
-import { exportCharts } from "./src/commands/exportPng";
+import { EXPORT_BACKGROUNDS, exportChart, exportCharts, exportFolder, pngBlob } from "./src/commands/exportPng";
 import { fence, insertAfterTable, onOwnLine, tableData } from "./src/commands/chartFromData";
 import { ChartPickerModal, DataFileModal } from "./src/commands/ChartPickerModal";
 import { CHART_TEMPLATE, TABLE_TEMPLATE } from "./src/commands/template";
 import { resolveRows } from "./src/data/resolveRows";
 import { parseMarkdownTable, tableAt } from "./src/parse/markdownTable";
-import { FlintChartSettingTab } from "./src/settings/SettingsTab";
+import { BACKGROUND_LABELS, FlintChartSettingTab } from "./src/settings/SettingsTab";
 import { DEFAULT_SETTINGS } from "./src/settings/types";
 import type { CandidateDeps, DataInput } from "./src/commands/chartFromData";
 import type { ExportTarget } from "./src/commands/exportPng";
@@ -35,6 +37,9 @@ export default class FlintChartPlugin extends Plugin {
 
   async onload(): Promise<void> {
     this.settings = { ...DEFAULT_SETTINGS, ...((await this.loadData()) as Partial<FlintChartSettings> | null) };
+    if (!EXPORT_BACKGROUNDS.includes(this.settings.exportBackground)) {
+      this.settings.exportBackground = DEFAULT_SETTINGS.exportBackground;
+    }
     this.addSettingTab(new FlintChartSettingTab(this.app, this));
 
     for (const language of LANGUAGES) {
@@ -49,6 +54,8 @@ export default class FlintChartPlugin extends Plugin {
             showRecommendationNotes: this.settings.showRecommendationNotes,
             defaultSize: { width: this.settings.defaultWidth, height: this.settings.defaultHeight },
           }),
+          onActions: (event, target, anchor) => this.openChartMenu(event, target, anchor),
+          decorateActions: (button) => setIcon(button, "image"),
         });
         this.controllers.add(controller);
 
@@ -207,8 +214,72 @@ export default class FlintChartPlugin extends Plugin {
     };
   }
 
-  private async runExport(file: TFile, controllers: BlockController[]): Promise<void> {
-    const target: ExportTarget = {
+  /** Copy and save for one chart, plus the background both use. */
+  private openChartMenu(event: MouseEvent, controller: BlockController, anchor: HTMLElement | undefined): void {
+    const menu = new Menu();
+    menu.addItem((item) =>
+      item.setTitle("Copy as PNG").setIcon("copy").onClick(() => void this.copyChart(controller)),
+    );
+    menu.addItem((item) =>
+      item.setTitle("Save as PNG").setIcon("download").onClick(() => void this.saveChart(controller)),
+    );
+    menu.addSeparator();
+    for (const background of EXPORT_BACKGROUNDS) {
+      menu.addItem((item) =>
+        item
+          .setTitle(`Background: ${BACKGROUND_LABELS[background]}`)
+          .setChecked(this.settings.exportBackground === background)
+          .onClick(async () => {
+            this.settings.exportBackground = background;
+            await this.saveSettings();
+          }),
+      );
+    }
+    if (anchor === undefined) {
+      menu.showAtMouseEvent(event);
+    } else {
+      // Below the button, so a keyboard press does not open the menu at 0,0.
+      const box = anchor.getBoundingClientRect();
+      menu.showAtPosition({ x: box.left, y: box.bottom });
+    }
+  }
+
+  private async copyChart(controller: BlockController): Promise<void> {
+    const blob = pngBlob(
+      controller.pngDataUrl({ scale: this.settings.exportScale, background: this.settings.exportBackground }),
+      base64ToArrayBuffer,
+    );
+    if (blob === undefined) {
+      new Notice("This chart has not finished drawing yet.");
+      return;
+    }
+    try {
+      await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+      new Notice("Chart copied as PNG.");
+    } catch (error) {
+      // Some mobile webviews cannot put images on the clipboard at all.
+      const detail = error instanceof Error ? error.message : String(error);
+      new Notice(`Could not copy the chart (${detail}). Use "Save as PNG" instead.`);
+    }
+  }
+
+  private async saveChart(controller: BlockController): Promise<void> {
+    try {
+      const path = await exportChart(controller, this.exportTarget(), {
+        notePath: controller.notePath(),
+        folder: exportFolder(this.settings.exportFolder, normalizePath),
+        scale: this.settings.exportScale,
+        background: this.settings.exportBackground,
+        ...(controller.title() !== undefined ? { title: controller.title() } : {}),
+      });
+      new Notice(path === undefined ? "This chart has not finished drawing yet." : `Saved ${path}.`);
+    } catch (error) {
+      new Notice(`Chart export failed: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  private exportTarget(): ExportTarget {
+    return {
       exists: (path) => this.app.vault.getAbstractFileByPath(path) !== null,
       writeBinary: async (path, data) => {
         await this.app.vault.createBinary(path, data);
@@ -220,12 +291,15 @@ export default class FlintChartPlugin extends Plugin {
       },
       decodeBase64: (base64) => base64ToArrayBuffer(base64),
     };
+  }
 
+  private async runExport(file: TFile, controllers: BlockController[]): Promise<void> {
     try {
-      const outcome = await exportCharts(controllers, target, {
+      const outcome = await exportCharts(controllers, this.exportTarget(), {
         notePath: file.path,
-        folder: normalizePath(this.settings.exportFolder),
+        folder: exportFolder(this.settings.exportFolder, normalizePath),
         scale: this.settings.exportScale,
+        background: this.settings.exportBackground,
       });
       const skipped = outcome.skipped === 0 ? "" : `, ${outcome.skipped} skipped`;
       new Notice(

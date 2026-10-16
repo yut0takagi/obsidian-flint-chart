@@ -45,6 +45,15 @@ export interface SnapshotOptions {
   option?: Record<string, unknown>;
 }
 
+/** A button over the chart, plus right-click on it, that opens the chart's actions. */
+export interface ChartActions {
+  label: string;
+  /** `anchor` is the button when it was clicked, undefined for a right-click on the chart. */
+  onClick(event: MouseEvent, anchor: HTMLElement | undefined): void;
+  /** Draws the button's icon; without it the button shows an ellipsis. */
+  decorate?(button: HTMLElement): void;
+}
+
 /** Used only when neither the element nor Flint knows how big the chart is. */
 const SNAPSHOT_FALLBACK: PixelSize = { width: 600, height: 400 };
 
@@ -53,11 +62,13 @@ export class ChartView {
   private canvas: HTMLElement | undefined;
   private issues: HTMLElement | undefined;
   private shown: ChartPayload | undefined;
+  private actionsButton: HTMLElement | undefined;
 
   constructor(
     private readonly container: HTMLElement,
     private readonly host: ChartHost,
     private readonly renderer: ChartRenderer,
+    private readonly actions?: ChartActions,
   ) {}
 
   /** Draws the chart, optionally with non-fatal notes underneath it. */
@@ -69,6 +80,7 @@ export class ChartView {
     this.instance ??= this.host.init(canvas, this.renderer);
     this.instance.setOption(chart.option, true);
     this.shown = chart;
+    this.ensureActionsButton();
 
     this.ensureIssues();
     renderIssues(this.issues!, { errors: [], warnings, source });
@@ -77,6 +89,7 @@ export class ChartView {
   /** Replaces the chart with a problem report, releasing the instance first. */
   showIssues(report: IssueReport): void {
     this.releaseInstance();
+    this.removeActionsButton();
     this.canvas?.remove();
     this.canvas = undefined;
     this.ensureIssues();
@@ -112,6 +125,7 @@ export class ChartView {
   /** The only exit. Idempotent. */
   destroy(): void {
     this.releaseInstance();
+    this.removeActionsButton();
     this.canvas?.remove();
     this.canvas = undefined;
     this.issues?.remove();
@@ -138,10 +152,50 @@ export class ChartView {
     if (this.canvas === undefined) {
       const canvas = document.createElement("div");
       canvas.className = "flint-chart-canvas";
+      const actions = this.actions;
+      if (actions !== undefined) {
+        canvas.addEventListener("contextmenu", (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          actions.onClick(event, undefined);
+        });
+      }
       this.container.insertBefore(canvas, this.issues ?? null);
       this.canvas = canvas;
     }
     return this.canvas;
+  }
+
+  /**
+   * A sibling of the chart element rather than a child: ECharts owns that
+   * element's contents and may clear them.
+   */
+  private ensureActionsButton(): void {
+    const actions = this.actions;
+    if (actions === undefined || this.actionsButton !== undefined) return;
+    const button = document.createElement("button");
+    button.className = "flint-chart-actions clickable-icon";
+    button.setAttribute("aria-label", actions.label);
+    button.textContent = "\u22ef";
+    actions.decorate?.(button);
+    // In Live Preview the editor would otherwise take the press and move the
+    // cursor into the block, swapping the chart for its source.
+    button.addEventListener("mousedown", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+    });
+    button.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      actions.onClick(event, button);
+    });
+    this.container.insertBefore(button, this.container.firstChild);
+    this.actionsButton = button;
+  }
+
+  private removeActionsButton(): void {
+    this.actionsButton?.remove();
+    this.actionsButton = undefined;
   }
 
   private ensureIssues(): HTMLElement {

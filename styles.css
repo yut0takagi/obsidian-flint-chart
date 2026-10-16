@@ -1,5 +1,33 @@
 .flint-chart-block {
+  position: relative;
   margin: 0.5em 0;
+}
+
+/* Copy / save menu for one chart: out of the way until the chart is hovered. */
+.flint-chart-actions {
+  position: absolute;
+  top: var(--size-2-2);
+  right: var(--size-2-2);
+  z-index: 1;
+  opacity: 0;
+  transition: opacity 120ms ease-in-out;
+}
+
+.flint-chart-block:hover > .flint-chart-actions,
+.flint-chart-actions:focus-visible {
+  opacity: 1;
+}
+
+/* Live Preview puts its own "edit block" button in the top-right corner. */
+.markdown-source-view .flint-chart-actions {
+  right: calc(var(--size-4-8) + var(--size-2-2));
+}
+
+/* No hover on touch screens, so the button stays visible there. */
+@media (hover: none) {
+  .flint-chart-actions {
+    opacity: 1;
+  }
 }
 
 .flint-chart-canvas {

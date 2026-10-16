@@ -28,8 +28,12 @@ export interface PipelineDeps {
 }
 
 export interface BuiltChart {
+  /** Ready to draw in the note: recoloured for the current theme. */
   option: Record<string, unknown>;
+  /** Flint's option before theming, so an export can be re-inked for another page. */
+  baseOption: Record<string, unknown>;
   chartType: string;
+  title?: string;
   /** True when the chart type was chosen for the author rather than written. */
   recommended: boolean;
   rowCount: number;
@@ -88,7 +92,9 @@ export async function buildChart(text: string, deps: PipelineDeps): Promise<Resu
     ok: true,
     value: {
       option: applyObsidianTheme(assembled.value.option, deps.palette),
+      baseOption: assembled.value.option,
       chartType,
+      ...(block.title !== undefined ? { title: block.title } : {}),
       recommended,
       rowCount: rows.value.length,
       ...(assembled.value.width !== undefined ? { width: assembled.value.width } : {}),

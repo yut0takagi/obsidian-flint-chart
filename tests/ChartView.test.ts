@@ -182,6 +182,58 @@ describe("ChartView", () => {
     expect(el.textContent).toContain("careful");
   });
 
+  it("offers an actions button only while a chart is shown", () => {
+    const { host } = fakeHost();
+    const el = document.createElement("div");
+    const onClick = vi.fn();
+    const view = new ChartView(el, host, "canvas", { label: "Chart actions", onClick });
+    expect(el.querySelector(".flint-chart-actions")).toBeNull();
+
+    view.show(chart);
+    const button = el.querySelector<HTMLButtonElement>("button.flint-chart-actions")!;
+    expect(button.getAttribute("aria-label")).toBe("Chart actions");
+    button.click();
+    expect(onClick).toHaveBeenCalledWith(expect.any(MouseEvent), button);
+
+    view.showIssues({ errors: [{ message: "bad" }], warnings: [], source: "" });
+    expect(el.querySelector(".flint-chart-actions")).toBeNull();
+    view.show(chart);
+    view.destroy();
+    expect(el.querySelector(".flint-chart-actions")).toBeNull();
+  });
+
+  it("keeps a click on the actions button from reaching the editor", () => {
+    const { host } = fakeHost();
+    const el = document.createElement("div");
+    const outside = vi.fn();
+    el.addEventListener("click", outside);
+    el.addEventListener("mousedown", outside);
+    new ChartView(el, host, "canvas", { label: "Chart actions", onClick: vi.fn() }).show(chart);
+    const button = el.querySelector<HTMLElement>(".flint-chart-actions")!;
+    button.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true }));
+    button.click();
+    expect(outside).not.toHaveBeenCalled();
+  });
+
+  it("opens the same actions from a right-click on the chart", () => {
+    const { host } = fakeHost();
+    const el = document.createElement("div");
+    const onClick = vi.fn();
+    new ChartView(el, host, "canvas", { label: "Chart actions", onClick }).show(chart);
+    const event = new MouseEvent("contextmenu", { bubbles: true, cancelable: true });
+    el.querySelector(".flint-chart-canvas")!.dispatchEvent(event);
+    expect(onClick).toHaveBeenCalledWith(event, undefined);
+    expect(event.defaultPrevented).toBe(true);
+  });
+
+  it("lets the host draw the button's icon", () => {
+    const { host } = fakeHost();
+    const el = document.createElement("div");
+    const decorate = vi.fn((button: HTMLElement) => button.setAttribute("data-icon", "image"));
+    new ChartView(el, host, "canvas", { label: "Chart actions", onClick: vi.fn(), decorate }).show(chart);
+    expect(el.querySelector(".flint-chart-actions")!.getAttribute("data-icon")).toBe("image");
+  });
+
   it("passes the configured renderer through to the host", () => {
     const { host } = fakeHost();
     new ChartView(document.createElement("div"), host, "svg").show(chart);
