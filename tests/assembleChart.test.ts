@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { assembleChart } from "../src/chart/assembleChart";
+import { FLINT_BASE_SIZE } from "../src/parse/normalizeBlock";
 import type { ChartAssemblyInput } from "../src/types";
 
 const input: ChartAssemblyInput = {
@@ -33,6 +34,15 @@ describe("assembleChart", () => {
     if (!result.ok) throw new Error("expected ok");
     expect(result.value.width).toBeGreaterThan(0);
     expect(result.value.height).toBeGreaterThan(0);
+  });
+
+  // normalizeBlock mirrors these two Flint defaults to complete half-written
+  // sizes. If a Flint upgrade moves them, this fails before users notice.
+  it("still uses the base size normalizeBlock assumes is Flint's default", () => {
+    const implicit = assembleChart(input);
+    const explicit = assembleChart({ ...input, chart_spec: { ...input.chart_spec, baseSize: { ...FLINT_BASE_SIZE } } });
+    if (!implicit.ok || !explicit.ok) throw new Error("expected ok");
+    expect([implicit.value.width, implicit.value.height]).toEqual([explicit.value.width, explicit.value.height]);
   });
 
   it("reports an unsupported chart type as an error instead of throwing", () => {

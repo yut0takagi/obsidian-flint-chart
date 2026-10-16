@@ -8,7 +8,7 @@ import { inferSemanticTypes } from "../data/inferSemanticTypes";
 import { resolveRows } from "../data/resolveRows";
 import type { ChartPalette } from "./applyObsidianTheme";
 import type { VaultReader } from "../data/resolveRows";
-import type { BlockIssue, Result } from "../types";
+import type { BlockIssue, Result, Size } from "../types";
 
 /**
  * The whole journey from block text to a themed ECharts option, with every
@@ -23,6 +23,8 @@ export interface PipelineDeps {
   palette: ChartPalette;
   /** Path of the note holding the block, for resolving relative links. */
   sourcePath: string;
+  /** Size for blocks that leave `width` / `height` out (the plugin setting). */
+  defaultSize?: Size;
 }
 
 export interface BuiltChart {
@@ -50,7 +52,9 @@ export async function buildChart(text: string, deps: PipelineDeps): Promise<Resu
     };
   }
 
-  const normalized = normalizeBlock(raw, registry);
+  const normalized = normalizeBlock(raw, registry, {
+    ...(deps.defaultSize !== undefined ? { defaultSize: deps.defaultSize } : {}),
+  });
   if (!normalized.ok) return normalized;
   const block = normalized.value;
   const warnings: BlockIssue[] = [...normalized.warnings];

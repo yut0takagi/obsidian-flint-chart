@@ -1,4 +1,4 @@
-import { PluginSettingTab, Setting } from "obsidian";
+import { PluginSettingTab, Setting, debounce } from "obsidian";
 import type { App, Plugin } from "obsidian";
 import type { FlintChartSettings } from "./types";
 
@@ -9,6 +9,9 @@ interface Host extends Plugin {
 }
 
 export class FlintChartSettingTab extends PluginSettingTab {
+  /** Size fields change on every keystroke; redraw once typing pauses. */
+  private readonly rerenderSoon = debounce(() => this.plugin.rerenderAll(), 400, true);
+
   constructor(app: App, private readonly plugin: Host) {
     super(app, plugin);
   }
@@ -43,12 +46,14 @@ export class FlintChartSettingTab extends PluginSettingTab {
             if (Number.isFinite(width) && width > 0) {
               this.plugin.settings.defaultWidth = width;
               await this.plugin.saveSettings();
+              this.rerenderSoon();
             }
           }),
       );
 
     new Setting(containerEl)
       .setName("Default height")
+      .setDesc("Used when a block does not set `height`.")
       .addText((text) =>
         text
           .setValue(String(this.plugin.settings.defaultHeight))
@@ -57,6 +62,7 @@ export class FlintChartSettingTab extends PluginSettingTab {
             if (Number.isFinite(height) && height > 0) {
               this.plugin.settings.defaultHeight = height;
               await this.plugin.saveSettings();
+              this.rerenderSoon();
             }
           }),
       );

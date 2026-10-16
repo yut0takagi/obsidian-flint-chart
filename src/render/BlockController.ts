@@ -3,7 +3,7 @@ import { readPalette } from "./palette";
 import { buildChart } from "../chart/pipeline";
 import type { ChartHost, ChartRenderer } from "./ChartView";
 import type { VaultReader } from "../data/resolveRows";
-import type { BlockIssue } from "../types";
+import type { BlockIssue, Size } from "../types";
 
 /**
  * One `flint` code block: renders it, remembers which vault files it read so it
@@ -15,6 +15,8 @@ import type { BlockIssue } from "../types";
 export interface ControllerSettings {
   renderer: ChartRenderer;
   showRecommendationNotes: boolean;
+  /** Used for whichever of `width` / `height` a block leaves out. */
+  defaultSize: Size;
 }
 
 export interface ControllerDeps {
@@ -67,6 +69,7 @@ export class BlockController {
       reader: tracking,
       palette: readPalette(this.container),
       sourcePath: this.sourcePath,
+      defaultSize: settings.defaultSize,
     });
 
     if (!result.ok) {

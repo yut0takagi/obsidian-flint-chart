@@ -37,6 +37,7 @@ export default class FlintChartPlugin extends Plugin {
           settings: () => ({
             renderer: this.settings.renderer,
             showRecommendationNotes: this.settings.showRecommendationNotes,
+            defaultSize: { width: this.settings.defaultWidth, height: this.settings.defaultHeight },
           }),
         });
         this.controllers.add(controller);

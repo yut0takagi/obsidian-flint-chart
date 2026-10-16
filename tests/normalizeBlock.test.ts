@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalizeBlock } from "../src/parse/normalizeBlock";
+import { FLINT_BASE_SIZE, FLINT_MAX_STRETCH, normalizeBlock } from "../src/parse/normalizeBlock";
 
 const registry = {
   chartTypes: ["Bar Chart", "Line Chart", "Gauge Chart", "Sankey Diagram"],
@@ -249,5 +249,51 @@ describe("normalizeBlock — data source edge cases", () => {
   it("splits a heading out of a wikilink source", () => {
     expect(ok<any>(normalizeBlock({ chartType: "Bar Chart", x: "a", source: "[[Sales Notes#Q3|Q3 sales]]" }, registry)).data)
       .toEqual({ kind: "file", path: "Sales Notes", table: "Q3" });
+  });
+});
+
+describe("normalizeBlock — default size", () => {
+  const defaults = { defaultSize: { width: 560, height: 340 } };
+
+  it("uses the default size when the block sets neither width nor height", () => {
+    const block = ok<any>(normalizeBlock({ chartType: "Bar Chart", x: "a", data: [] }, registry, defaults));
+    expect(block.baseSize).toEqual({ width: 560, height: 340 });
+  });
+
+  it("fills only the side the block leaves out", () => {
+    expect(ok<any>(normalizeBlock({ chartType: "Bar Chart", x: "a", width: 640, data: [] }, registry, defaults)).baseSize)
+      .toEqual({ width: 640, height: 340 });
+    expect(ok<any>(normalizeBlock({ chartType: "Bar Chart", x: "a", height: 400, data: [] }, registry, defaults)).baseSize)
+      .toEqual({ width: 560, height: 400 });
+  });
+
+  it("applies the default to a pasted full-form spec that has no baseSize", () => {
+    const block = ok<any>(normalizeBlock({
+      chart_spec: { chartType: "Bar Chart", encodings: { x: { field: "a" } } },
+      data: { values: [] },
+    }, registry, defaults));
+    expect(block.baseSize).toEqual({ width: 560, height: 340 });
+  });
+
+  it("completes a half-written full-form baseSize instead of dropping it", () => {
+    const block = ok<any>(normalizeBlock({
+      chart_spec: { chartType: "Bar Chart", encodings: { x: { field: "a" } }, baseSize: { width: 700 } },
+      data: { values: [] },
+    }, registry, defaults));
+    expect(block.baseSize).toEqual({ width: 700, height: 340 });
+  });
+
+  it("leaves the size to Flint when there is no default and the block sets none", () => {
+    expect(ok<any>(normalizeBlock({ chartType: "Bar Chart", x: "a", data: [] }, registry)).baseSize).toBeUndefined();
+  });
+
+  it("without a default, fills the missing side with Flint's own default rather than a made-up one", () => {
+    expect(ok<any>(normalizeBlock({ chartType: "Bar Chart", x: "a", width: 640, data: [] }, registry)).baseSize)
+      .toEqual({ width: 640, height: FLINT_BASE_SIZE.height });
+  });
+
+  it("does not let a one-sided ceiling clamp the other side harder than Flint would", () => {
+    const block = ok<any>(normalizeBlock({ chartType: "Bar Chart", x: "a", maxWidth: 900, data: [] }, registry, defaults));
+    expect(block.canvasSize).toEqual({ width: 900, height: Math.round(340 * FLINT_MAX_STRETCH) });
   });
 });
