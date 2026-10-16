@@ -1,4 +1,5 @@
 import { renderIssues } from "./errorView";
+import { capChartPx, exportPixelRatio } from "../limits";
 import type { IssueReport } from "./errorView";
 import type { BlockIssue } from "../types";
 
@@ -74,8 +75,9 @@ export class ChartView {
   /** Draws the chart, optionally with non-fatal notes underneath it. */
   show(chart: ChartPayload, warnings: BlockIssue[] = [], source = ""): void {
     const canvas = this.ensureCanvas();
-    if (chart.height !== undefined) canvas.style.height = `${chart.height}px`;
-    if (chart.width !== undefined) canvas.style.maxWidth = `${chart.width}px`;
+    // Flint may stretch a chart past the size the block asked for; hold it to the limit.
+    if (chart.height !== undefined) canvas.style.height = `${capChartPx(chart.height)}px`;
+    if (chart.width !== undefined) canvas.style.maxWidth = `${capChartPx(chart.width)}px`;
 
     this.instance ??= this.host.init(canvas, this.renderer);
     this.instance.setOption(chart.option, true);
@@ -109,12 +111,13 @@ export class ChartView {
   snapshot(options: SnapshotOptions): string | undefined {
     if (this.instance === undefined || this.shown === undefined) return undefined;
     const option = options.option ?? this.shown.option;
-    const instance = this.host.init(document.createElement("div"), "canvas", this.snapshotSize());
+    const size = this.snapshotSize();
+    const instance = this.host.init(document.createElement("div"), "canvas", size);
     try {
       instance.setOption({ ...option, animation: false }, true);
       return instance.getDataURL({
         type: "png",
-        pixelRatio: options.pixelRatio,
+        pixelRatio: exportPixelRatio(size, options.pixelRatio),
         backgroundColor: options.backgroundColor,
       });
     } finally {
@@ -143,8 +146,8 @@ export class ChartView {
     const width = this.canvas?.clientWidth ?? 0;
     const height = this.canvas?.clientHeight ?? 0;
     return {
-      width: width > 0 ? width : this.shown?.width ?? SNAPSHOT_FALLBACK.width,
-      height: height > 0 ? height : this.shown?.height ?? SNAPSHOT_FALLBACK.height,
+      width: capChartPx(width > 0 ? width : this.shown?.width ?? SNAPSHOT_FALLBACK.width),
+      height: capChartPx(height > 0 ? height : this.shown?.height ?? SNAPSHOT_FALLBACK.height),
     };
   }
 

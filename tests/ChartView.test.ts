@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from "vitest";
 import { ChartView } from "../src/render/ChartView";
+import { MAX_CHART_PX, MAX_EXPORT_AREA } from "../src/limits";
 import type { ChartHost, ChartInstance } from "../src/render/ChartView";
 
 const fakeHost = () => {
@@ -232,6 +233,28 @@ describe("ChartView", () => {
     const decorate = vi.fn((button: HTMLElement) => button.setAttribute("data-icon", "image"));
     new ChartView(el, host, "canvas", { label: "Chart actions", onClick: vi.fn(), decorate }).show(chart);
     expect(el.querySelector(".flint-chart-actions")!.getAttribute("data-icon")).toBe("image");
+  });
+
+  it("never sizes the chart element past the drawing limit, whatever Flint computed", () => {
+    const el = document.createElement("div");
+    const { host } = fakeHost();
+    new ChartView(el, host, "canvas").show({ option: { series: [] }, width: 1e6, height: 1e6 });
+    const canvas = el.querySelector<HTMLElement>(".flint-chart-canvas")!;
+    expect(canvas.style.height).toBe(`${MAX_CHART_PX}px`);
+    expect(canvas.style.maxWidth).toBe(`${MAX_CHART_PX}px`);
+  });
+
+  it("caps the snapshot canvas and its scale, so an export cannot ask for a giant bitmap", () => {
+    const { host, instances } = fakeHost();
+    const view = new ChartView(document.createElement("div"), host, "canvas");
+    view.show({ option: { series: [] }, width: 1e6, height: 1e6 });
+    view.snapshot({ pixelRatio: 4, backgroundColor: "transparent" });
+    const size = (host.init as ReturnType<typeof vi.fn>).mock.calls[1]![2] as { width: number; height: number };
+    const [request] = (instances[1]!.getDataURL as ReturnType<typeof vi.fn>).mock.calls[0]!;
+    const ratio = (request as { pixelRatio: number }).pixelRatio;
+    expect(size.width).toBeLessThanOrEqual(MAX_CHART_PX);
+    expect(size.height).toBeLessThanOrEqual(MAX_CHART_PX);
+    expect(size.width * ratio * size.height * ratio).toBeLessThanOrEqual(MAX_EXPORT_AREA);
   });
 
   it("passes the configured renderer through to the host", () => {

@@ -116,6 +116,16 @@ chart_spec:
     expect(half.value.height).toBe(explicit.value.height);
   });
 
+  it("draws an oversized block at the cap and passes the note on, as it does the chart-type note", async () => {
+    const r = await buildChart(`${BLOCK}\nwidth: 100000\nheight: 100000`, deps);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.warnings.map((w) => w.key)).toEqual(expect.arrayContaining(["width", "height"]));
+    const capped = await buildChart(`${BLOCK}\nwidth: 4096\nheight: 4096`, deps);
+    if (!capped.ok) throw new Error("expected ok");
+    expect([r.value.width, r.value.height]).toEqual([capped.value.width, capped.value.height]);
+  });
+
   it("carries block warnings through to the caller", async () => {
     const r = await buildChart(`${BLOCK}\ntheme: economist`, deps);
     expect(r.ok).toBe(true);

@@ -68,6 +68,8 @@ Encoding channels go at the top level:
 | `names` | Column → display label, for axis titles and legends. |
 | `width`, `height` | Target size in pixels. Charts still shrink to fit the note. |
 | `maxWidth`, `maxHeight` | Hard ceiling on how far the layout may stretch. |
+
+Sizes are capped at 4096 px per side, and the block says so when one is; PNG export lowers its scale when the image would pass 8192 px a side or 4096 × 4096 in area.
 | `properties` | Chart-specific options, e.g. `{ stackMode: normalize, cornerRadius: 4 }`. |
 | `data`, `source`, `table` | Where the rows come from — see below. |
 

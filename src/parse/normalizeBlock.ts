@@ -1,3 +1,4 @@
+import { MAX_CHART_PX, capChartPx } from "../limits";
 import type {
   BlockIssue,
   DataSource,
@@ -154,11 +155,15 @@ export function normalizeBlock(
 
   // ---- sizes ------------------------------------------------------------
   const baseSize = completeBase(
-    isFullForm ? asPartialSize(spec.baseSize) : readSize(obj, "width", "height", errors),
+    isFullForm
+      ? asPartialSize(spec.baseSize, "baseSize", warnings)
+      : readSize(obj, "width", "height", errors, warnings),
     options.defaultSize,
   );
   const canvasSize = completeCeiling(
-    isFullForm ? asPartialSize(spec.canvasSize) : readSize(obj, "maxWidth", "maxHeight", errors),
+    isFullForm
+      ? asPartialSize(spec.canvasSize, "canvasSize", warnings)
+      : readSize(obj, "maxWidth", "maxHeight", errors, warnings),
     baseSize ?? FLINT_BASE_SIZE,
   );
 
@@ -266,9 +271,10 @@ function readSize(
   widthKey: string,
   heightKey: string,
   errors: BlockIssue[],
+  warnings: BlockIssue[],
 ): Partial<Size> {
-  const width = readDimension(obj[widthKey], widthKey, errors);
-  const height = readDimension(obj[heightKey], heightKey, errors);
+  const width = capWritten(readDimension(obj[widthKey], widthKey, errors), widthKey, warnings);
+  const height = capWritten(readDimension(obj[heightKey], heightKey, errors), heightKey, warnings);
   return {
     ...(width !== undefined ? { width } : {}),
     ...(height !== undefined ? { height } : {}),
@@ -277,9 +283,24 @@ function readSize(
 
 /** The block's size, with any side it leaves out taken from the default. */
 function completeBase(written: Partial<Size>, fallback: Size | undefined): Size | undefined {
-  if (written.width === undefined && written.height === undefined) return fallback;
-  const base = fallback ?? FLINT_BASE_SIZE;
-  return { width: written.width ?? base.width, height: written.height ?? base.height };
+  // The fallback is the plugin setting, which has no upper bound of its own.
+  const base = fallback === undefined ? undefined : capSize(fallback);
+  if (written.width === undefined && written.height === undefined) return base;
+  return { width: written.width ?? (base ?? FLINT_BASE_SIZE).width, height: written.height ?? (base ?? FLINT_BASE_SIZE).height };
+}
+
+function capSize(size: Size): Size {
+  return { width: capChartPx(size.width), height: capChartPx(size.height) };
+}
+
+/** A size the block wrote, held to the drawing limit with a note saying so. */
+function capWritten(value: number | undefined, key: string, warnings: BlockIssue[]): number | undefined {
+  if (value === undefined || value <= MAX_CHART_PX) return value;
+  warnings.push({
+    message: `\`${key}: ${value}\` is larger than a chart can be drawn; using ${MAX_CHART_PX} px.`,
+    key,
+  });
+  return MAX_CHART_PX;
 }
 
 /**
@@ -290,8 +311,8 @@ function completeBase(written: Partial<Size>, fallback: Size | undefined): Size 
 function completeCeiling(written: Partial<Size>, base: Size): Size | undefined {
   if (written.width === undefined && written.height === undefined) return undefined;
   return {
-    width: written.width ?? Math.round(base.width * FLINT_MAX_STRETCH),
-    height: written.height ?? Math.round(base.height * FLINT_MAX_STRETCH),
+    width: written.width ?? capChartPx(Math.round(base.width * FLINT_MAX_STRETCH)),
+    height: written.height ?? capChartPx(Math.round(base.height * FLINT_MAX_STRETCH)),
   };
 }
 
@@ -305,13 +326,15 @@ function readDimension(value: unknown, key: string, errors: BlockIssue[]): numbe
 }
 
 /** Full form is passed through, so values that are not positive numbers are just left out. */
-function asPartialSize(value: unknown): Partial<Size> {
+function asPartialSize(value: unknown, key: string, warnings: BlockIssue[]): Partial<Size> {
   const record = asRecord(value);
   if (record === undefined) return {};
   const usable = (n: unknown): n is number => typeof n === "number" && Number.isFinite(n) && n > 0;
+  const width = usable(record.width) ? capWritten(record.width, key, warnings) : undefined;
+  const height = usable(record.height) ? capWritten(record.height, key, warnings) : undefined;
   return {
-    ...(usable(record.width) ? { width: record.width } : {}),
-    ...(usable(record.height) ? { height: record.height } : {}),
+    ...(width !== undefined ? { width } : {}),
+    ...(height !== undefined ? { height } : {}),
   };
 }
 

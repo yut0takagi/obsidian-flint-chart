@@ -1,6 +1,7 @@
 import { FuzzySuggestModal, Modal, Platform } from "obsidian";
 import type { App, TFile } from "obsidian";
 import { channelSummary, suggestionsFor, verifyCandidate } from "./chartFromData";
+import { capChartPx } from "../limits";
 import type { Candidate, CandidateDeps, DataInput } from "./chartFromData";
 import type { ChartHost, ChartInstance } from "../render/ChartView";
 
@@ -77,8 +78,8 @@ export class ChartPickerModal extends Modal {
 
   /** Drawn at the size the block will have, then scaled down to the card. */
   private drawPreview(frame: HTMLElement, candidate: Candidate): void {
-    const width = candidate.chart.width ?? 560;
-    const height = candidate.chart.height ?? 340;
+    const width = capChartPx(candidate.chart.width ?? 560);
+    const height = capChartPx(candidate.chart.height ?? 340);
     const scale = Math.min(1, (frame.clientWidth || width) / width);
     const stage = frame.createDiv({ cls: "flint-chart-candidate-stage" });
     stage.style.width = `${width}px`;
