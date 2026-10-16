@@ -101,6 +101,31 @@ chart_spec:
     }
   });
 
+  it("draws a block without a size at the configured default size", async () => {
+    const fromDefault = await buildChart(BLOCK, { ...deps, defaultSize: { width: 800, height: 500 } });
+    const explicit = await buildChart(`${BLOCK}\nwidth: 800\nheight: 500`, deps);
+    if (!fromDefault.ok || !explicit.ok) throw new Error("expected ok");
+    expect({ width: fromDefault.value.width, height: fromDefault.value.height })
+      .toEqual({ width: explicit.value.width, height: explicit.value.height });
+  });
+
+  it("takes the side a block leaves out from the configured default", async () => {
+    const half = await buildChart(`${BLOCK}\nwidth: 800`, { ...deps, defaultSize: { width: 560, height: 500 } });
+    const explicit = await buildChart(`${BLOCK}\nwidth: 800\nheight: 500`, deps);
+    if (!half.ok || !explicit.ok) throw new Error("expected ok");
+    expect(half.value.height).toBe(explicit.value.height);
+  });
+
+  it("draws an oversized block at the cap and passes the note on, as it does the chart-type note", async () => {
+    const r = await buildChart(`${BLOCK}\nwidth: 100000\nheight: 100000`, deps);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.warnings.map((w) => w.key)).toEqual(expect.arrayContaining(["width", "height"]));
+    const capped = await buildChart(`${BLOCK}\nwidth: 4096\nheight: 4096`, deps);
+    if (!capped.ok) throw new Error("expected ok");
+    expect([r.value.width, r.value.height]).toEqual([capped.value.width, capped.value.height]);
+  });
+
   it("carries block warnings through to the caller", async () => {
     const r = await buildChart(`${BLOCK}\ntheme: economist`, deps);
     expect(r.ok).toBe(true);

@@ -1,6 +1,6 @@
 {
   "name": "obsidian-flint-chart",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Render Microsoft Flint semantic chart specifications inside Markdown notes.",
   "license": "MIT",
   "author": "Yuto Takagi",
@@ -38,7 +38,7 @@
     "esbuild": "^0.20.0",
     "js-yaml": "^5.3.0",
     "jsdom": "^29.1.1",
-    "obsidian": "latest",
+    "obsidian": "^1.13.1",
     "typescript": "^5.3.0",
     "vitest": "^1.2.0"
   }

@@ -44,6 +44,44 @@ export function extractTable(note: string, heading?: string): Row[] | undefined 
   return undefined;
 }
 
+export interface TableLocation {
+  /** Header line, 0-based. */
+  start: number;
+  /** Last body line, inclusive. */
+  end: number;
+  /** Text of the nearest heading above the table, if there is one. */
+  heading?: string;
+}
+
+/**
+ * The pipe table that `line` belongs to, found the way `extractTable` reads
+ * tables: header, separator, body, outside fenced code. Undefined when the
+ * line is not part of one.
+ */
+export function tableAt(lines: string[], line: number): TableLocation | undefined {
+  let inFence = false;
+  let heading: string | undefined;
+  for (let i = 0; i <= line && i < lines.length; i++) {
+    const text = lines[i]!;
+    if (FENCE.test(text)) {
+      inFence = !inFence;
+      continue;
+    }
+    if (inFence) continue;
+    const match = HEADING.exec(text);
+    if (match !== null) heading = match[2]!.trim();
+  }
+  if (inFence || line < 0 || line >= lines.length || !looksLikeRow(lines[line]!)) return undefined;
+
+  let start = line;
+  while (start > 0 && looksLikeRow(lines[start - 1]!)) start--;
+  let end = line;
+  while (end + 1 < lines.length && looksLikeRow(lines[end + 1]!)) end++;
+  if (start + 1 > end || !SEPARATOR.test(lines[start + 1]!)) return undefined;
+
+  return { start, end, ...(heading !== undefined && heading !== "" ? { heading } : {}) };
+}
+
 function looksLikeRow(line: string): boolean {
   const text = line.trim();
   return text !== "" && text.includes("|") && !HEADING.test(text);

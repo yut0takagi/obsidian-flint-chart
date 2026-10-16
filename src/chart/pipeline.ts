@@ -8,7 +8,7 @@ import { inferSemanticTypes } from "../data/inferSemanticTypes";
 import { resolveRows } from "../data/resolveRows";
 import type { ChartPalette } from "./applyObsidianTheme";
 import type { VaultReader } from "../data/resolveRows";
-import type { BlockIssue, Result } from "../types";
+import type { BlockIssue, Result, Size } from "../types";
 
 /**
  * The whole journey from block text to a themed ECharts option, with every
@@ -23,11 +23,17 @@ export interface PipelineDeps {
   palette: ChartPalette;
   /** Path of the note holding the block, for resolving relative links. */
   sourcePath: string;
+  /** Size for blocks that leave `width` / `height` out (the plugin setting). */
+  defaultSize?: Size;
 }
 
 export interface BuiltChart {
+  /** Ready to draw in the note: recoloured for the current theme. */
   option: Record<string, unknown>;
+  /** Flint's option before theming, so an export can be re-inked for another page. */
+  baseOption: Record<string, unknown>;
   chartType: string;
+  title?: string;
   /** True when the chart type was chosen for the author rather than written. */
   recommended: boolean;
   rowCount: number;
@@ -50,7 +56,9 @@ export async function buildChart(text: string, deps: PipelineDeps): Promise<Resu
     };
   }
 
-  const normalized = normalizeBlock(raw, registry);
+  const normalized = normalizeBlock(raw, registry, {
+    ...(deps.defaultSize !== undefined ? { defaultSize: deps.defaultSize } : {}),
+  });
   if (!normalized.ok) return normalized;
   const block = normalized.value;
   const warnings: BlockIssue[] = [...normalized.warnings];
@@ -84,7 +92,9 @@ export async function buildChart(text: string, deps: PipelineDeps): Promise<Resu
     ok: true,
     value: {
       option: applyObsidianTheme(assembled.value.option, deps.palette),
+      baseOption: assembled.value.option,
       chartType,
+      ...(block.title !== undefined ? { title: block.title } : {}),
       recommended,
       rowCount: rows.value.length,
       ...(assembled.value.width !== undefined ? { width: assembled.value.width } : {}),

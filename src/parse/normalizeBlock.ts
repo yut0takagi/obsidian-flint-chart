@@ -1,3 +1,4 @@
+import { MAX_CHART_PX, capChartPx } from "../limits";
 import type {
   BlockIssue,
   DataSource,
@@ -19,6 +20,23 @@ export interface TemplateRegistry {
   allChannels: Set<string>;
   channelsFor(chartType: string): string[] | undefined;
 }
+
+export interface NormalizeOptions {
+  /**
+   * Size for whichever of `width` / `height` a block leaves out — the plugin's
+   * "Default width / height" setting. Without it, Flint picks the size.
+   */
+  defaultSize?: Size;
+}
+
+/**
+ * Flint's own sizing defaults (`DEFAULT_BASE_SIZE` and `DEFAULT_MAX_STRETCH` in
+ * 0.5.x), mirrored so a half-written size behaves as though the missing side
+ * had not been written at all. `tests/assembleChart.test.ts` checks the first
+ * against Flint so an upgrade cannot move it silently.
+ */
+export const FLINT_BASE_SIZE: Size = { width: 400, height: 320 };
+export const FLINT_MAX_STRETCH = 1.5;
 
 /** Top-level keys that are settings rather than encoding channels. */
 const KEY_ALIASES: Record<string, string> = {
@@ -53,7 +71,11 @@ const KEY_ALIASES: Record<string, string> = {
 /** Nouns stripped when matching a chart type loosely: "sankey" -> "Sankey Diagram". */
 const TYPE_NOUNS = /\s+(chart|plot|diagram|graph|map)$/i;
 
-export function normalizeBlock(raw: unknown, registry: TemplateRegistry): Result<FlintBlock> {
+export function normalizeBlock(
+  raw: unknown,
+  registry: TemplateRegistry,
+  options: NormalizeOptions = {},
+): Result<FlintBlock> {
   const errors: BlockIssue[] = [];
   const warnings: BlockIssue[] = [];
 
@@ -132,12 +154,18 @@ export function normalizeBlock(raw: unknown, registry: TemplateRegistry): Result
   }
 
   // ---- sizes ------------------------------------------------------------
-  const baseSize = isFullForm
-    ? asSize(spec.baseSize)
-    : readSize(obj, "width", "height", errors);
-  const canvasSize = isFullForm
-    ? asSize(spec.canvasSize)
-    : readSize(obj, "maxWidth", "maxHeight", errors);
+  const baseSize = completeBase(
+    isFullForm
+      ? asPartialSize(spec.baseSize, "baseSize", warnings)
+      : readSize(obj, "width", "height", errors, warnings),
+    options.defaultSize,
+  );
+  const canvasSize = completeCeiling(
+    isFullForm
+      ? asPartialSize(spec.canvasSize, "canvasSize", warnings)
+      : readSize(obj, "maxWidth", "maxHeight", errors, warnings),
+    baseSize ?? FLINT_BASE_SIZE,
+  );
 
   // ---- semantic types ---------------------------------------------------
   const rawTypes = isFullForm
@@ -243,11 +271,49 @@ function readSize(
   widthKey: string,
   heightKey: string,
   errors: BlockIssue[],
-): Size | undefined {
-  const width = readDimension(obj[widthKey], widthKey, errors);
-  const height = readDimension(obj[heightKey], heightKey, errors);
-  if (width === undefined && height === undefined) return undefined;
-  return { width: width ?? 480, height: height ?? 320 };
+  warnings: BlockIssue[],
+): Partial<Size> {
+  const width = capWritten(readDimension(obj[widthKey], widthKey, errors), widthKey, warnings);
+  const height = capWritten(readDimension(obj[heightKey], heightKey, errors), heightKey, warnings);
+  return {
+    ...(width !== undefined ? { width } : {}),
+    ...(height !== undefined ? { height } : {}),
+  };
+}
+
+/** The block's size, with any side it leaves out taken from the default. */
+function completeBase(written: Partial<Size>, fallback: Size | undefined): Size | undefined {
+  // The fallback is the plugin setting, which has no upper bound of its own.
+  const base = fallback === undefined ? undefined : capSize(fallback);
+  if (written.width === undefined && written.height === undefined) return base;
+  return { width: written.width ?? (base ?? FLINT_BASE_SIZE).width, height: written.height ?? (base ?? FLINT_BASE_SIZE).height };
+}
+
+function capSize(size: Size): Size {
+  return { width: capChartPx(size.width), height: capChartPx(size.height) };
+}
+
+/** A size the block wrote, held to the drawing limit with a note saying so. */
+function capWritten(value: number | undefined, key: string, warnings: BlockIssue[]): number | undefined {
+  if (value === undefined || value <= MAX_CHART_PX) return value;
+  warnings.push({
+    message: `\`${key}: ${value}\` is larger than a chart can be drawn; using ${MAX_CHART_PX} px.`,
+    key,
+  });
+  return MAX_CHART_PX;
+}
+
+/**
+ * Flint needs both sides of a ceiling. A missing side gets exactly the room
+ * Flint would have allowed with no ceiling at all, rather than pinning it to
+ * the base size and forbidding that side to stretch.
+ */
+function completeCeiling(written: Partial<Size>, base: Size): Size | undefined {
+  if (written.width === undefined && written.height === undefined) return undefined;
+  return {
+    width: written.width ?? capChartPx(Math.round(base.width * FLINT_MAX_STRETCH)),
+    height: written.height ?? capChartPx(Math.round(base.height * FLINT_MAX_STRETCH)),
+  };
 }
 
 function readDimension(value: unknown, key: string, errors: BlockIssue[]): number | undefined {
@@ -259,11 +325,17 @@ function readDimension(value: unknown, key: string, errors: BlockIssue[]): numbe
   return value;
 }
 
-function asSize(value: unknown): Size | undefined {
+/** Full form is passed through, so values that are not positive numbers are just left out. */
+function asPartialSize(value: unknown, key: string, warnings: BlockIssue[]): Partial<Size> {
   const record = asRecord(value);
-  if (record === undefined) return undefined;
-  const { width, height } = record;
-  return typeof width === "number" && typeof height === "number" ? { width, height } : undefined;
+  if (record === undefined) return {};
+  const usable = (n: unknown): n is number => typeof n === "number" && Number.isFinite(n) && n > 0;
+  const width = usable(record.width) ? capWritten(record.width, key, warnings) : undefined;
+  const height = usable(record.height) ? capWritten(record.height, key, warnings) : undefined;
+  return {
+    ...(width !== undefined ? { width } : {}),
+    ...(height !== undefined ? { height } : {}),
+  };
 }
 
 function readSemanticTypes(value: unknown, errors: BlockIssue[]): Record<string, SemanticTypeValue> {

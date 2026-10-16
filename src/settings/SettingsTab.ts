@@ -1,6 +1,15 @@
-import { PluginSettingTab, Setting } from "obsidian";
+import { PluginSettingTab, Setting, debounce } from "obsidian";
 import type { App, Plugin } from "obsidian";
+import { EXPORT_BACKGROUNDS } from "../commands/exportPng";
+import type { ExportBackground } from "../commands/exportPng";
 import type { FlintChartSettings } from "./types";
+
+/** Shared by the setting and the chart's actions menu. */
+export const BACKGROUND_LABELS: Record<ExportBackground, string> = {
+  theme: "Note theme",
+  white: "White",
+  transparent: "Transparent",
+};
 
 interface Host extends Plugin {
   settings: FlintChartSettings;
@@ -9,6 +18,9 @@ interface Host extends Plugin {
 }
 
 export class FlintChartSettingTab extends PluginSettingTab {
+  /** Size fields change on every keystroke; redraw once typing pauses. */
+  private readonly rerenderSoon = debounce(() => this.plugin.rerenderAll(), 400, true);
+
   constructor(app: App, private readonly plugin: Host) {
     super(app, plugin);
   }
@@ -43,12 +55,14 @@ export class FlintChartSettingTab extends PluginSettingTab {
             if (Number.isFinite(width) && width > 0) {
               this.plugin.settings.defaultWidth = width;
               await this.plugin.saveSettings();
+              this.rerenderSoon();
             }
           }),
       );
 
     new Setting(containerEl)
       .setName("Default height")
+      .setDesc("Used when a block does not set `height`.")
       .addText((text) =>
         text
           .setValue(String(this.plugin.settings.defaultHeight))
@@ -57,6 +71,7 @@ export class FlintChartSettingTab extends PluginSettingTab {
             if (Number.isFinite(height) && height > 0) {
               this.plugin.settings.defaultHeight = height;
               await this.plugin.saveSettings();
+              this.rerenderSoon();
             }
           }),
       );
@@ -75,6 +90,22 @@ export class FlintChartSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl).setName("PNG export").setHeading();
+
+    new Setting(containerEl)
+      .setName("Background")
+      .setDesc(
+        "What exported and copied images sit on. White also darkens text and axes, so a chart from a " +
+          "dark theme stays readable on a white slide. Transparent keeps the theme's text colours.",
+      )
+      .addDropdown((dropdown) => {
+        for (const background of EXPORT_BACKGROUNDS) dropdown.addOption(background, BACKGROUND_LABELS[background]);
+        dropdown.setValue(this.plugin.settings.exportBackground).onChange(async (value) => {
+          const chosen = EXPORT_BACKGROUNDS.find((background) => background === value);
+          if (chosen === undefined) return;
+          this.plugin.settings.exportBackground = chosen;
+          await this.plugin.saveSettings();
+        });
+      });
 
     new Setting(containerEl)
       .setName("Export folder")

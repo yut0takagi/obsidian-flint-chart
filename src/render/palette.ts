@@ -4,7 +4,8 @@ import type { ChartPalette } from "../chart/applyObsidianTheme";
  * Reads the live Obsidian theme instead of branching on light/dark, so any
  * community theme the reader has installed is honoured.
  */
-const FALLBACK: ChartPalette = {
+/** Obsidian's default light ink. Also what a chart is re-inked with for a white PNG. */
+export const LIGHT_PALETTE: ChartPalette = {
   text: "#2e3338",
   muted: "#6e7079",
   border: "#dcddde",
@@ -20,11 +21,17 @@ export function readPalette(element: HTMLElement): ChartPalette {
     return value === "" ? fallback : value;
   };
   return {
-    text: read("--text-normal", FALLBACK.text),
-    muted: read("--text-muted", FALLBACK.muted),
-    border: read("--background-modifier-border", FALLBACK.border),
-    grid: read("--background-modifier-border", FALLBACK.grid),
-    surface: read("--background-secondary", FALLBACK.surface),
-    fontFamily: read("--font-interface", FALLBACK.fontFamily),
+    text: read("--text-normal", LIGHT_PALETTE.text),
+    muted: read("--text-muted", LIGHT_PALETTE.muted),
+    border: read("--background-modifier-border", LIGHT_PALETTE.border),
+    grid: read("--background-modifier-border", LIGHT_PALETTE.grid),
+    surface: read("--background-secondary", LIGHT_PALETTE.surface),
+    fontFamily: read("--font-interface", LIGHT_PALETTE.fontFamily),
   };
+}
+
+/** The note's own background, painted behind a PNG exported with the theme. */
+export function readBackground(element: HTMLElement): string {
+  const value = getComputedStyle(element).getPropertyValue("--background-primary").trim();
+  return value === "" ? "#ffffff" : value;
 }

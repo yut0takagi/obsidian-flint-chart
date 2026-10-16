@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { chartTypes } from "../src/chart/templates";
-import { resolveChartType } from "../src/chart/recommend";
+import { recommendCharts, resolveChartType } from "../src/chart/recommend";
 
 const rows = [
   { quarter: "Q1", revenue: 1200 },
@@ -28,5 +28,33 @@ describe("resolveChartType", () => {
 
   it("never throws on odd data", () => {
     expect(() => resolveChartType(undefined, [{ a: null }], { a: "Unknown" })).not.toThrow();
+  });
+});
+
+describe("recommendCharts", () => {
+  it("suggests several chart types, each with columns bound to channels", () => {
+    const suggestions = recommendCharts(
+      [
+        { quarter: "Q1", revenue: 1200, region: "East" },
+        { quarter: "Q2", revenue: 1580, region: "East" },
+        { quarter: "Q1", revenue: 800, region: "West" },
+      ],
+      { quarter: "Quarter", revenue: "Price", region: "Category" },
+      3,
+    );
+    expect(suggestions.length).toBeGreaterThan(1);
+    expect(suggestions.length).toBeLessThanOrEqual(3);
+    for (const suggestion of suggestions) {
+      expect(chartTypes).toContain(suggestion.chartType);
+      expect(Object.keys(suggestion.encodings).length).toBeGreaterThan(0);
+      for (const column of Object.values(suggestion.encodings)) {
+        expect(["quarter", "revenue", "region"]).toContain(column);
+      }
+    }
+  });
+
+  it("returns nothing for no rows, and never throws on odd data", () => {
+    expect(recommendCharts([], {}, 4)).toEqual([]);
+    expect(() => recommendCharts([{ a: null }], { a: { semanticType: "Unknown" } }, 4)).not.toThrow();
   });
 });
