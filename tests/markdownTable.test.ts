@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { extractTable, parseMarkdownTable } from "../src/parse/markdownTable";
+import { extractTable, parseMarkdownTable, tableAt } from "../src/parse/markdownTable";
 
 const NOTE = `# Sales
 
@@ -89,5 +89,47 @@ describe("extractTable", () => {
   it("skips tables inside fenced code blocks", () => {
     const note = "# T\n\n```\n| a | b |\n|---|---|\n| 1 | 2 |\n```\n\n| c |\n|---|\n| 9 |\n";
     expect(extractTable(note)).toEqual([{ c: 9 }]);
+  });
+});
+
+describe("tableAt", () => {
+  const LINES = [
+    "# Sales",              // 0
+    "",                     // 1
+    "## Q3",                // 2
+    "",                     // 3
+    "| Region | Revenue |",  // 4
+    "| --- | ---: |",        // 5
+    "| North | 1,580 |",     // 6
+    "| South | 1,120 |",     // 7
+    "",                     // 8
+    "Closing prose.",       // 9
+  ];
+
+  it("finds the whole table from any of its lines, with the heading it sits under", () => {
+    for (const line of [4, 5, 6, 7]) {
+      expect(tableAt(LINES, line)).toEqual({ start: 4, end: 7, heading: "Q3" });
+    }
+  });
+
+  it("returns undefined off the table", () => {
+    expect(tableAt(LINES, 2)).toBeUndefined();
+    expect(tableAt(LINES, 8)).toBeUndefined();
+    expect(tableAt(LINES, 9)).toBeUndefined();
+  });
+
+  it("leaves the heading out when the table has none above it", () => {
+    expect(tableAt(["| a | b |", "|---|---|", "| 1 | 2 |"], 2)).toEqual({ start: 0, end: 2 });
+  });
+
+  it("ignores pipe lines without a separator row", () => {
+    expect(tableAt(["a | b", "c | d"], 0)).toBeUndefined();
+  });
+
+  it("ignores a table inside fenced code, and headings inside fenced code", () => {
+    const lines = ["## Real", "```", "## Fake", "| a | b |", "|---|---|", "| 1 | 2 |", "```"];
+    expect(tableAt(lines, 4)).toBeUndefined();
+    const after = ["## Real", "```", "## Fake", "```", "| a | b |", "|---|---|", "| 1 | 2 |"];
+    expect(tableAt(after, 6)).toEqual({ start: 4, end: 6, heading: "Real" });
   });
 });
