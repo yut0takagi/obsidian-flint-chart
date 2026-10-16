@@ -152,7 +152,7 @@ Each one's channels and options are listed in Flint's [ECharts chart reference](
 
 ## Settings
 
-- **Renderer** — canvas (faster on large datasets) or SVG (stays crisp when zoomed, and what PNG export uses best).
+- **Renderer** — canvas (faster on large datasets) or SVG (stays crisp when zoomed). PNG export works the same with either: the image is drawn afresh on a canvas, after the entry animation.
 - **Default width / height** — used when a block does not say.
 - **Note automatic chart types** — show a line under the chart when the type was chosen for you.
 - **Export folder** and **export scale** — where PNGs go and how sharp they are. Scale 2 or 3 suits slides.

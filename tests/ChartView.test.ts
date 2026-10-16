@@ -101,12 +101,76 @@ describe("ChartView", () => {
     expect(instances[0]!.resize).toHaveBeenCalledTimes(1);
   });
 
-  it("returns a data URL once a chart exists and undefined before that", () => {
+  it("has nothing to snapshot before a chart is shown, or after it is replaced by an error", () => {
     const { host } = fakeHost();
     const view = new ChartView(document.createElement("div"), host, "canvas");
-    expect(view.dataUrl()).toBeUndefined();
+    expect(view.snapshot({ pixelRatio: 2, backgroundColor: "transparent" })).toBeUndefined();
     view.show(chart);
-    expect(view.dataUrl()).toBe("data:image/png;base64,AAA");
+    view.showIssues({ errors: [{ message: "bad" }], warnings: [], source: "" });
+    expect(view.snapshot({ pixelRatio: 2, backgroundColor: "transparent" })).toBeUndefined();
+  });
+
+  it("snapshots on a fresh canvas instance, even when the view draws with SVG", () => {
+    const { host, instances } = fakeHost();
+    const view = new ChartView(document.createElement("div"), host, "svg");
+    view.show(chart);
+    const url = view.snapshot({ pixelRatio: 3, backgroundColor: "#ffffff" });
+
+    expect(url).toBe("data:image/png;base64,AAA");
+    expect(host.init).toHaveBeenLastCalledWith(expect.anything(), "canvas", { width: 480, height: 320 });
+    const [onScreen, offScreen] = instances;
+    expect(onScreen!.getDataURL).not.toHaveBeenCalled();
+    expect(offScreen!.getDataURL).toHaveBeenCalledWith({ type: "png", pixelRatio: 3, backgroundColor: "#ffffff" });
+  });
+
+  it("snapshots the finished chart, not a frame of its entry animation", () => {
+    const { host, instances } = fakeHost();
+    const view = new ChartView(document.createElement("div"), host, "canvas");
+    view.show(chart);
+    view.snapshot({ pixelRatio: 1, backgroundColor: "transparent" });
+    expect(instances[1]!.setOption).toHaveBeenCalledWith({ series: [], animation: false }, true);
+  });
+
+  it("can snapshot a differently styled option without touching the one on screen", () => {
+    const { host, instances } = fakeHost();
+    const view = new ChartView(document.createElement("div"), host, "canvas");
+    view.show(chart);
+    view.snapshot({ pixelRatio: 1, backgroundColor: "#fff", option: { series: [], textStyle: { color: "#000" } } });
+    expect(instances[1]!.setOption).toHaveBeenCalledWith(
+      { series: [], textStyle: { color: "#000" }, animation: false }, true,
+    );
+    expect(instances[0]!.setOption).toHaveBeenCalledTimes(1);
+  });
+
+  it("disposes the snapshot instance straight away and keeps the chart on screen", () => {
+    const { host, instances } = fakeHost();
+    const el = document.createElement("div");
+    const view = new ChartView(el, host, "canvas");
+    view.show(chart);
+    view.snapshot({ pixelRatio: 1, backgroundColor: "transparent" });
+    expect(instances[1]!.dispose).toHaveBeenCalledTimes(1);
+    expect(instances[0]!.dispose).not.toHaveBeenCalled();
+    expect(el.querySelectorAll(".flint-chart-canvas")).toHaveLength(1);
+  });
+
+  it("disposes the snapshot instance even when drawing it throws", () => {
+    const { host, instances } = fakeHost();
+    const view = new ChartView(document.createElement("div"), host, "canvas");
+    view.show(chart);
+    (host.init as ReturnType<typeof vi.fn>).mockImplementationOnce(() => {
+      const broken: ChartInstance = {
+        setOption: vi.fn(() => {
+          throw new Error("boom");
+        }),
+        resize: vi.fn(),
+        dispose: vi.fn(),
+        getDataURL: vi.fn(),
+      };
+      instances.push(broken);
+      return broken;
+    });
+    expect(() => view.snapshot({ pixelRatio: 1, backgroundColor: "transparent" })).toThrow("boom");
+    expect(instances[1]!.dispose).toHaveBeenCalledTimes(1);
   });
 
   it("renders warnings alongside the chart rather than replacing it", () => {

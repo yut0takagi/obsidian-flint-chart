@@ -2,6 +2,7 @@ import { ChartView } from "./ChartView";
 import { readPalette } from "./palette";
 import { buildChart } from "../chart/pipeline";
 import type { ChartHost, ChartRenderer } from "./ChartView";
+import type { PngOptions, PngSource } from "../commands/exportPng";
 import type { VaultReader } from "../data/resolveRows";
 import type { BlockIssue, Size } from "../types";
 
@@ -26,7 +27,7 @@ export interface ControllerDeps {
   settings(): ControllerSettings;
 }
 
-export class BlockController {
+export class BlockController implements PngSource {
   private view: ChartView | undefined;
   private viewRenderer: ChartRenderer | undefined;
   private dependencies = new Set<string>();
@@ -46,8 +47,9 @@ export class BlockController {
     return this.sourcePath;
   }
 
-  dataUrl(scale: number): string | undefined {
-    return this.view?.dataUrl({ type: "png", pixelRatio: scale, backgroundColor: "transparent" });
+  /** The chart as a PNG data URL, whichever renderer draws it on screen. */
+  pngDataUrl(options: PngOptions): string | undefined {
+    return this.view?.snapshot({ pixelRatio: options.scale, backgroundColor: "transparent" });
   }
 
   async render(): Promise<void> {

@@ -1,10 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import { exportCharts } from "../src/commands/exportPng";
 import type { ExportTarget } from "../src/commands/exportPng";
-import type { BlockController } from "../src/render/BlockController";
+import type { PngSource } from "../src/commands/exportPng";
 
-const chart = (dataUrl: string | undefined): BlockController =>
-  ({ dataUrl: () => dataUrl }) as unknown as BlockController;
+const chart = (dataUrl: string | undefined): PngSource => ({ pngDataUrl: () => dataUrl });
 
 const PNG = "data:image/png;base64,QUJD";
 
@@ -68,6 +67,15 @@ describe("exportCharts", () => {
     const { impl } = target();
     await exportCharts([chart(PNG)], impl, { notePath: "Sales.md", folder: "", scale: 2 });
     expect(impl.ensureFolder).not.toHaveBeenCalled();
+  });
+
+  it("never writes a file from a data URL that is not a PNG", async () => {
+    const { impl } = target();
+    const svg = "data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%2F%3E";
+    const outcome = await exportCharts([chart(svg)], impl, { notePath: "Sales.md", folder: "", scale: 2 });
+    expect(impl.writeBinary).not.toHaveBeenCalled();
+    expect(outcome.written).toEqual([]);
+    expect(outcome.skipped).toBe(1);
   });
 
   it("decodes only the payload, not the data URL prefix", async () => {

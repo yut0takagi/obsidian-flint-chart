@@ -21,7 +21,13 @@ export interface ChartInstance {
 }
 
 export interface ChartHost {
-  init(element: HTMLElement, renderer: ChartRenderer): ChartInstance;
+  /** Without `size` the chart follows the element; with it, the element may be detached. */
+  init(element: HTMLElement, renderer: ChartRenderer, size?: PixelSize): ChartInstance;
+}
+
+export interface PixelSize {
+  width: number;
+  height: number;
 }
 
 export type ChartRenderer = "canvas" | "svg";
@@ -32,10 +38,21 @@ export interface ChartPayload {
   height?: number;
 }
 
+export interface SnapshotOptions {
+  pixelRatio: number;
+  backgroundColor: string;
+  /** Draw this option instead of the one on screen, e.g. restyled for a white page. */
+  option?: Record<string, unknown>;
+}
+
+/** Used only when neither the element nor Flint knows how big the chart is. */
+const SNAPSHOT_FALLBACK: PixelSize = { width: 600, height: 400 };
+
 export class ChartView {
   private instance: ChartInstance | undefined;
   private canvas: HTMLElement | undefined;
   private issues: HTMLElement | undefined;
+  private shown: ChartPayload | undefined;
 
   constructor(
     private readonly container: HTMLElement,
@@ -51,6 +68,7 @@ export class ChartView {
 
     this.instance ??= this.host.init(canvas, this.renderer);
     this.instance.setOption(chart.option, true);
+    this.shown = chart;
 
     this.ensureIssues();
     renderIssues(this.issues!, { errors: [], warnings, source });
@@ -69,8 +87,26 @@ export class ChartView {
     this.instance?.resize();
   }
 
-  dataUrl(options?: Record<string, unknown>): string | undefined {
-    return this.instance?.getDataURL(options);
+  /**
+   * Paints the chart once more on a detached canvas and returns it as a PNG
+   * data URL. The on-screen instance is never read: the SVG renderer can only
+   * return SVG, whatever `type` is asked for, and a canvas still running its
+   * entry animation would be caught half-drawn.
+   */
+  snapshot(options: SnapshotOptions): string | undefined {
+    if (this.instance === undefined || this.shown === undefined) return undefined;
+    const option = options.option ?? this.shown.option;
+    const instance = this.host.init(document.createElement("div"), "canvas", this.snapshotSize());
+    try {
+      instance.setOption({ ...option, animation: false }, true);
+      return instance.getDataURL({
+        type: "png",
+        pixelRatio: options.pixelRatio,
+        backgroundColor: options.backgroundColor,
+      });
+    } finally {
+      instance.dispose();
+    }
   }
 
   /** The only exit. Idempotent. */
@@ -85,6 +121,17 @@ export class ChartView {
   private releaseInstance(): void {
     this.instance?.dispose();
     this.instance = undefined;
+    this.shown = undefined;
+  }
+
+  /** What the reader sees, falling back to the size Flint laid the chart out at. */
+  private snapshotSize(): PixelSize {
+    const width = this.canvas?.clientWidth ?? 0;
+    const height = this.canvas?.clientHeight ?? 0;
+    return {
+      width: width > 0 ? width : this.shown?.width ?? SNAPSHOT_FALLBACK.width,
+      height: height > 0 ? height : this.shown?.height ?? SNAPSHOT_FALLBACK.height,
+    };
   }
 
   private ensureCanvas(): HTMLElement {

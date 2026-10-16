@@ -1,4 +1,13 @@
-import type { BlockController } from "../render/BlockController";
+/** Anything that can hand over a chart as a PNG data URL. */
+export interface PngSource {
+  /** Undefined when there is no chart to export, e.g. the block shows an error. */
+  pngDataUrl(options: PngOptions): string | undefined;
+}
+
+export interface PngOptions {
+  /** Pixel multiplier. */
+  scale: number;
+}
 
 /** Everything the export needs from the vault, so the logic stays testable. */
 export interface ExportTarget {
@@ -21,7 +30,7 @@ export interface ExportOutcome {
 }
 
 export async function exportCharts(
-  controllers: BlockController[],
+  controllers: PngSource[],
   target: ExportTarget,
   options: ExportOptions,
 ): Promise<ExportOutcome> {
@@ -33,9 +42,8 @@ export async function exportCharts(
   let skipped = 0;
 
   for (let index = 0; index < controllers.length; index++) {
-    const dataUrl = controllers[index]!.dataUrl(options.scale);
-    const base64 = dataUrl?.split(",")[1];
-    if (base64 === undefined || base64 === "") {
+    const base64 = pngPayload(controllers[index]!.pngDataUrl({ scale: options.scale }));
+    if (base64 === undefined) {
       skipped++;
       continue;
     }
@@ -45,6 +53,18 @@ export async function exportCharts(
   }
 
   return { written, skipped };
+}
+
+const PNG_DATA_URL = /^data:image\/png;base64,([A-Za-z0-9+/]+={0,2})$/;
+
+/**
+ * The base64 body of a PNG data URL, or undefined for anything else. Writing
+ * the bytes of an SVG, or of an empty canvas's `data:,`, into a `.png` would
+ * leave a file that looks fine in the vault and fails to open.
+ */
+export function pngPayload(dataUrl: string | undefined): string | undefined {
+  if (dataUrl === undefined) return undefined;
+  return PNG_DATA_URL.exec(dataUrl)?.[1];
 }
 
 /** Never overwrites: an existing name gets a numeric suffix. */
