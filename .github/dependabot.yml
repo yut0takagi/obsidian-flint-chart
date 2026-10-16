@@ -1,0 +1,33 @@
+version: 2
+updates:
+  # The toolchain (esbuild, typescript, vitest, jsdom, the Obsidian types)
+  # never ships to a vault, so it comes as one pull request a month.
+  # flint-chart and echarts are bundled into main.js, so they are left out of
+  # any group: each bump gets its own pull request, where the changelog and the
+  # bundle size are worth reading.
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 5
+    groups:
+      dev-dependencies:
+        dependency-type: development
+    ignore:
+      # A new major of the Obsidian API types can describe APIs newer than
+      # minAppVersion; take it deliberately, alongside a minAppVersion review.
+      - dependency-name: obsidian
+        update-types: ["version-update:semver-major"]
+      # TypeScript majors change type checking enough to want a deliberate bump.
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major"]
+
+  # The workflows pin actions to commit SHAs, which is exactly the case where
+  # nothing gets updated unless something is watching.
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: monthly
+    groups:
+      github-actions:
+        patterns: ["*"]
