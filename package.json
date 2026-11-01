@@ -30,7 +30,7 @@
   },
   "dependencies": {
     "echarts": "6.1.0",
-    "flint-chart": "0.5.1"
+    "flint-chart": "1.0.1"
   },
   "devDependencies": {
     "@types/js-yaml": "^4.0.9",
